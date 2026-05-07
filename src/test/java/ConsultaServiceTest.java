@@ -1,3 +1,4 @@
+import org.example.models.Consulta;
 import org.example.models.Pet;
 import org.example.models.Tutor;
 import org.example.repositories.fake.ConsultaRepositoryFake;
@@ -12,6 +13,7 @@ import org.example.services.PagamentoConsultaService;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.time.LocalDateTime;
 import java.time.chrono.ChronoLocalDate;
@@ -193,6 +195,64 @@ public class ConsultaServiceTest {
 
 
         assertEquals(0, consultaRepository.listarTodas().size());
+    }
+
+    @Test
+    void deveSeguirFluxoCorretoAoAgendarConsulta(){
+        consultaRepository = mock(ConsultaRepository.class);
+        consultaService = new ConsultaService(
+                tutorRepository,
+                petRepository,
+                consultaRepository,
+                agendaVeterinarioService,
+                pagamentoConsultaService
+        );
+        Tutor tutor = new Tutor(1L, "Maicon Microsoft");
+
+        Pet pet =  new Pet(
+                1L,
+                "C-Shark",
+                tutor.getId()
+        );
+
+        tutorRepository.salvar(tutor);
+        petRepository.salvar(pet);
+
+        LocalDateTime dataConsulta = LocalDateTime.of(2026, 05, 20, 14, 0);
+
+        when(
+                agendaVeterinarioService
+                        .veterinarioDisponivel(dataConsulta)
+        ).thenReturn(true);
+
+        when(
+                pagamentoConsultaService
+                        .aprovarPagamento(tutor, 200.0)
+        ).thenReturn(true);
+
+        consultaService.agendarConsulta(
+                tutor.getId(),
+                pet.getId(),
+                dataConsulta,
+                200.0
+        );
+
+        InOrder ordem = inOrder(
+                agendaVeterinarioService,
+                pagamentoConsultaService,
+                consultaRepository
+        );
+
+        ordem.verify(agendaVeterinarioService)
+                .veterinarioDisponivel(dataConsulta);
+
+        ordem.verify(pagamentoConsultaService)
+                .aprovarPagamento(tutor, 200.0);
+
+        ordem.verify(consultaRepository)
+                .salvar(any(Consulta.class));
+
+        ordem.verifyNoMoreInteractions();
     }
 
 
